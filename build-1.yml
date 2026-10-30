@@ -1,0 +1,36 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip project
+        run: |
+          Z=$(ls *.zip | sort -V | tail -1)
+          echo "ใช้ไฟล์ $Z"
+          unzip -q -o "$Z" -d src
+          D=$(dirname $(find src -type d -name aibot-app | head -1))
+          echo "ROOT=$D" >> $GITHUB_ENV
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+      - name: Build APK
+        run: cd "$ROOT/aibot-app" && gradle --no-daemon assembleDebug
+      - name: Publish APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: ผู้ช่วย AI build ${{ github.run_number }}
+          files: ${{ env.ROOT }}/aibot-app/app/build/outputs/apk/debug/app-debug.apk
