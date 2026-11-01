@@ -26,6 +26,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Run tests
+        # เทสต์ไม่ผ่าน = ไม่ build ไม่ออก release (กันแอปพังหลุดไปถึงมือถือ)
+        run: |
+          pip install -q requests numpy
+          cd "$ROOT/huawei-ai-bot" && python -m unittest discover tests
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.7'
