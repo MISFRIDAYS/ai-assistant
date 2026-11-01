@@ -1,6 +1,9 @@
 name: Build APK
 on:
   push:
+    paths:          # build เฉพาะเมื่ออัปโหลด zip ใหม่ / แก้ workflow (แก้เอกสารไม่ build เปล่า)
+      - '*.zip'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 permissions:
   contents: write
