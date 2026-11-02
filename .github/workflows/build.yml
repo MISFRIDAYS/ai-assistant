@@ -31,6 +31,32 @@ jobs:
         run: |
           pip install -q requests numpy
           cd "$ROOT/huawei-ai-bot" && python -m unittest discover tests
+      - name: Tester defaults (optional)
+        # เจ้าของ repo ใส่ Secret TEST_NANOGPT_KEY (คีย์ทดสอบแยกต่างหาก ลบทิ้งได้หลังทดสอบ)
+        # → แอปที่ติดตั้งใหม่ได้ค่าตั้งต้นของรุ่นผู้ทดลอง: ไม่ต้องตั้งค่าเอง ซ่อนหน้าตั้งค่า
+        # เครื่องที่ตั้งค่าไว้แล้ว (มีไฟล์ .env) ไม่ถูกแตะ · ไม่มี Secret = build แบบปกติ
+        # หมายเหตุ: คีย์จะอยู่ในไฟล์ APK ใครได้ APK ไปก็ดึงคีย์ออกได้ → ใช้คีย์แยกและลบหลังทดสอบเสร็จ
+        env:
+          KEY: ${{ secrets.TEST_NANOGPT_KEY }}
+          MODEL: ${{ vars.TEST_CLOUD_MODEL }}
+        run: |
+          if [ -z "$KEY" ]; then echo "ไม่มี TEST_NANOGPT_KEY → build แบบปกติ"; exit 0; fi
+          F="$ROOT/huawei-ai-bot/tester_defaults.env"
+          {
+            echo "TESTER_MODE=1"
+            echo "LLM_PROVIDER=cloud"
+            echo "LLM_FALLBACK=none"
+            echo "CLOUD_API_KEY=$KEY"
+            echo "CLOUD_BASE_URL=https://nano-gpt.com/api/v1"
+            if [ -n "$MODEL" ]; then echo "CLOUD_MODEL=$MODEL"; fi
+            echo "STT_ENGINE=nano"
+            echo "SELF_REPAIR=off"
+            echo "ENABLE_SHELL=0"
+            echo "SPEAKER_VERIFY=1"
+            echo "REQUIRE_VOICE_ENROLL=1"
+            echo "AUTOREPLY_DAILY_MAX=10"
+          } > "$F"
+          echo "ใส่ค่าตั้งต้นของรุ่นผู้ทดลองแล้ว"
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.7'
