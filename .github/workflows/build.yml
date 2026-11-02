@@ -38,6 +38,7 @@ jobs:
         # หมายเหตุ: คีย์จะอยู่ในไฟล์ APK ใครได้ APK ไปก็ดึงคีย์ออกได้ → ใช้คีย์แยกและลบหลังทดสอบเสร็จ
         env:
           KEY: ${{ secrets.TEST_NANOGPT_KEY }}
+          GROQ: ${{ secrets.TEST_GROQ_KEY }}
           MODEL: ${{ vars.TEST_CLOUD_MODEL }}
         run: |
           if [ -z "$KEY" ]; then echo "ไม่มี TEST_NANOGPT_KEY → build แบบปกติ"; exit 0; fi
@@ -49,7 +50,8 @@ jobs:
             echo "CLOUD_API_KEY=$KEY"
             echo "CLOUD_BASE_URL=https://nano-gpt.com/api/v1"
             if [ -n "$MODEL" ]; then echo "CLOUD_MODEL=$MODEL"; fi
-            echo "STT_ENGINE=nano"
+            # มีคีย์ Groq (ฟรี) → ถอดเสียงด้วย Groq ก่อน แล้วสำรองด้วย NanoGPT · ไม่มี → NanoGPT อย่างเดียว
+            if [ -n "$GROQ" ]; then echo "GROQ_API_KEY=$GROQ"; echo "STT_ENGINE=auto"; else echo "STT_ENGINE=nano"; fi
             echo "SELF_REPAIR=off"
             echo "ENABLE_SHELL=0"
             echo "SPEAKER_VERIFY=1"
@@ -62,6 +64,15 @@ jobs:
           gradle-version: '8.7'
       - name: Build APK
         run: cd "$ROOT/aibot-app" && gradle --no-daemon assembleDebug
+      - name: Check tester defaults are inside the APK
+        # มีคีย์ทดสอบแต่ไฟล์ค่าตั้งต้นไม่ได้เข้า APK = แอปจะถามหาคีย์ → ไม่ออก release
+        env:
+          KEY: ${{ secrets.TEST_NANOGPT_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then exit 0; fi
+          unzip -l "$ROOT/aibot-app/app/build/outputs/apk/debug/app-debug.apk" | grep -q "assets/bot/tester_defaults.env" \
+            && echo "พบค่าตั้งต้นของรุ่นผู้ทดลองใน APK" \
+            || { echo "ไม่พบ tester_defaults.env ใน APK"; exit 1; }
       - name: Publish APK
         uses: softprops/action-gh-release@v2
         with:
