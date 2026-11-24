@@ -142,14 +142,12 @@ def classify(text, has_image=False, screen="", ambient=False, context=""):
 
 # ---------------------------------------------------------------- ลงมือ
 
-_APPKEY = {"ไอจี": "instagram", "ig": "instagram", "อินสตาแกรม": "instagram", "อินสตา": "instagram",
-           "ไลน์": "line", "เฟส": "messenger", "facebook": "messenger", "เฟซบุ๊ก": "messenger",
-           "เมสเซนเจอร์": "messenger", "เทเลแกรม": "telegram", "วอทส์แอป": "whatsapp"}
+import chat_apps  # noqa: E402
 
 
 def _app(a):
     a = (a or "").strip().lower()
-    return _APPKEY.get(a, a)
+    return chat_apps.key(a, dm=True) or a
 
 
 def _dm_app(app, to):
@@ -253,7 +251,7 @@ def _setting(d, ctx):
 
 
 _MSG_VERB = re.compile(r"ส่ง|ตอบ|บอก|พิมพ์|ทัก|แชท|แชต|แชร์|ว่า|message|reply|send|text", re.I)
-_APP_WORD = re.compile(r"ไลน์|line|ไอจี|อินสตา|instagram|\big\b|เฟส|facebook|messenger|เมสเซ|วอทส์|whatsapp|เทเลแกรม|telegram|sms", re.I)
+_APP_WORD = re.compile(chat_apps.ANY, re.I)
 
 
 def _n(t):

@@ -8,6 +8,8 @@ import os
 import re
 import time
 
+import chat_apps
+
 TTL = 120
 _P = {}
 
@@ -17,8 +19,7 @@ _NO = re.compile(r"^(ไม่|ไม่ใช่|ยกเลิก|ไม่�
 _EDIT = re.compile(r"^(?:แก้|เปลี่ยน)\s*(?:ข้อความ)?\s*(?:เป็น|ว่า)\s*(?P<m>.+)$")
 _ORD = {"1": 0, "หนึ่ง": 0, "แรก": 0, "อันแรก": 0, "คนแรก": 0, "2": 1, "สอง": 1, "ที่สอง": 1, "3": 2, "สาม": 2,
         "4": 3, "สี่": 3, "5": 4, "ห้า": 4}
-_APP_LABEL = {"line": "LINE", "instagram": "Instagram", "messenger": "Messenger", "facebook": "Facebook",
-              "whatsapp": "WhatsApp", "telegram": "Telegram", "sms": "SMS"}
+_APP_LABEL = dict(chat_apps.LABEL)
 
 
 def _p():

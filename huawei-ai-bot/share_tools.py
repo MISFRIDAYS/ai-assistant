@@ -700,8 +700,9 @@ def _is_username(to):
     return bool(re.fullmatch(r"@?[A-Za-z0-9._]{2,30}", to or ""))
 
 
-APP_PKG = {"instagram": "com.instagram.android", "line": "jp.naver.line.android", "messenger": "com.facebook.orca",
-           "facebook": "com.facebook.katana", "telegram": "org.telegram.messenger", "whatsapp": "com.whatsapp"}
+import chat_apps  # noqa: E402
+
+APP_PKG = {k: chat_apps.APP_PKG[k] for k in chat_apps.DM_APPS}
 _PLACEHOLDER = re.compile(r"^(ส่งข้อความ|ข้อความ|พิมพ์ข้อความ|aa|message|type a message|write a message|"
                           r"เขียนข้อความ|ถาม meta ai.*|message\.\.\.|พิมพ์ที่นี่)\s*[.…]*$", re.I)
 

@@ -15,13 +15,10 @@ _PATH = os.path.join(config.DATA_DIR, "contacts.json")
 _lock = threading.RLock()
 _db = {"d": None}
 WEIGHT = {"sent": 5.0, "call": 5.0, "taught": 50.0, "notif": 1.0, "scan": 2.0}
-APP_KEYS = {"jp.naver.line.android": "line", "com.facebook.orca": "messenger", "com.instagram.android": "instagram",
-            "com.whatsapp": "whatsapp", "org.telegram.messenger": "telegram", "com.facebook.katana": "facebook",
-            "com.google.android.apps.messaging": "sms", "com.android.mms": "sms", "com.huawei.message": "sms",
-            "com.discord": "discord", "com.viber.voip": "viber", "com.tencent.mm": "wechat"}
-APP_WORDS = {"line": r"ไลน์|line", "instagram": r"ไอจี|อินสตา(?:แกรม)?|instagram|i?ns?t?[ar]{1,3}gr?a?m|insta|ig", "messenger": r"เมสเซนเจอร์|เมสเซ็นเจอร์|messenger|แชทเฟส",
-             "facebook": r"เฟส(?:บุ๊ค|บุ๊ก)?|facebook", "whatsapp": r"วอทส์?แอป|whatsapp", "telegram": r"เทเลแกรม|telegram",
-             "sms": r"sms|ข้อความมือถือ"}
+import chat_apps  # noqa: E402
+
+APP_KEYS = chat_apps.PKG_APP                 # package → ชื่อแอป (ตารางกลางอยู่ใน chat_apps.py)
+APP_WORDS = chat_apps.WORDS                  # ชื่อแอป → คำเรียก regex
 
 
 def norm(name):

@@ -77,16 +77,10 @@ def _battery(ctx):
             + (f" อุณหภูมิ {round(float(t))}°C" if t is not None else "") + f" {_p()}")
 
 
-# instagram ที่พิมพ์/ถอดเสียงเพี้ยน: instragram, instagam, instgram, instargram, intagram, insta
-_IG_LOOSE = r"i?ns?t?[ar]{0,3}gr?a?m+|insta"
-_DM_APP = (r"(ไอจี|ig|instagram|i?ns?t?[ar]{0,3}gr?a?m+|insta|อินสตาร์แกรม|อินสตราแกรม|อินสตาแกม|อินสต้าแกรม|อินสตาแกรม|อินสต้า|อินสตาร์|อินสตา|ไลน์|line|เฟสบุ๊ก|เฟสบุ๊ค|เฟซบุ๊ก|เฟส|facebook|messenger|"
-           r"เมสเซนเจอร์|เมสเซ็นเจอร์|เทเลแกรม|telegram|whatsapp|วอทส์แอป|วอทแอป)")
-_DM_APPKEY = {"ไอจี": "instagram", "ig": "instagram", "อินสตาแกรม": "instagram", "อินสตา": "instagram",
-              "อินสตาร์แกรม": "instagram", "อินสตราแกรม": "instagram", "อินสตาแกม": "instagram",
-              "อินสต้าแกรม": "instagram", "อินสต้า": "instagram", "อินสตาร์": "instagram",
-              "ไลน์": "line", "เฟสบุ๊ก": "messenger", "เฟสบุ๊ค": "messenger", "เฟซบุ๊ก": "messenger", "เฟส": "messenger",
-              "facebook": "messenger", "เมสเซนเจอร์": "messenger", "เมสเซ็นเจอร์": "messenger",
-              "เทเลแกรม": "telegram", "วอทส์แอป": "whatsapp", "วอทแอป": "whatsapp"}
+import chat_apps  # noqa: E402
+
+# ชื่อแอปแชทในประโยค (ไทย/อังกฤษ/สะกดเพี้ยน) — ตารางกลางอยู่ใน chat_apps.py
+_DM_APP = chat_apps.ANY
 _DM = re.compile(r"(?:(?:ส่งข้อความ|ส่งแชท|ส่งไลน์|ส่ง|แชท)\s*(?:ไป)?\s*(?:หา|ให้|ถึง)|"
                  r"(?:ทัก|ตอบ)(?:กลับ)?(?:แชท|ข้อความ)?\s*(?:ไป)?\s*(?:หา|ให้)?)"
                  r"\s*(?P<to>.+?)\s*"
@@ -99,13 +93,9 @@ _DM2 = re.compile(r"(?:ห้อง)?(?:แชท|แชต|แชร์)\s*(?:�
 
 
 def app_key(word):
-    """คำที่พูด/พิมพ์ → ชื่อแอปมาตรฐาน ('instragram' → 'instagram')"""
+    """คำที่พูด/พิมพ์ → ชื่อแอปมาตรฐาน ('instragram' → 'instagram', 'เฟส' → 'messenger')"""
     w = (word or "").strip().lower()
-    if w in _DM_APPKEY:
-        return _DM_APPKEY[w]
-    if w and w not in ("line", "messenger", "telegram", "whatsapp", "facebook") and re.fullmatch(_IG_LOOSE, w):
-        return "instagram"
-    return w
+    return chat_apps.key(w, dm=True) or w
 
 
 def _last_dm_app():
@@ -211,8 +201,7 @@ def _dm_llm(raw, ctx=None, on_start=None):
         except Exception:  # noqa: BLE001
             app = None
     app = app or _last_dm_app()
-    if not (app and to and msg) or len(to) > 40 or app not in ("instagram", "line", "messenger", "telegram",
-                                                                 "whatsapp", "facebook"):
+    if not (app and to and msg) or len(to) > 40 or app not in chat_apps.DM_APPS:
         return None
     return _do_send(app, to, msg, ctx, on_start, explicit=explicit)
 

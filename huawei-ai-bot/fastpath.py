@@ -115,8 +115,10 @@ def health():
 
 _REPLY = re.compile(r"^(?:ช่วย)?\s*(?:ตอบ(?:กลับ)?|รีพลาย)\s*(?:แชท|ข้อความ)?\s*(?:ของ|ให้|หา|ไปหา)?\s*(?P<to>.+?)\s*"
                     r"(?:ว่า|บอกว่า)\s*(?P<msg>.+)$")
-_PKG_APP = {"jp.naver.line.android": "line", "com.instagram.android": "instagram", "com.facebook.orca": "messenger",
-            "com.facebook.katana": "messenger", "org.telegram.messenger": "telegram", "com.whatsapp": "whatsapp"}
+import chat_apps  # noqa: E402
+
+# package → แอปที่ใช้ส่งข้อความ (แอป Facebook ส่งข้อความผ่าน Messenger)
+_PKG_APP = {p: ("messenger" if k == "facebook" else k) for p, k in chat_apps.PKG_APP.items() if k in chat_apps.DM_APPS}
 _LATEST = ("ล่าสุด", "คนล่าสุด", "แชทล่าสุด", "คนที่ทักมา", "คนที่ทักล่าสุด", "เมื่อกี้")
 
 

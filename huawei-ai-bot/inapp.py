@@ -17,8 +17,9 @@ MEDIA = {"com.google.android.youtube": "youtube", "com.google.android.apps.youtu
 SEARCHABLE = {"com.shopee.th": "shopee", "com.lazada.android": "lazada", "com.ss.android.ugc.trill": "tiktok",
               "com.zhiliaoapp.musically": "tiktok", "com.facebook.katana": "facebook", "com.twitter.android": "x",
               "com.android.chrome": "chrome", "com.google.android.apps.maps": "maps", **MEDIA}
-CHAT = {"jp.naver.line.android": "line", "com.instagram.android": "instagram", "com.facebook.orca": "messenger",
-        "com.whatsapp": "whatsapp", "org.telegram.messenger": "telegram", "com.facebook.katana": "facebook"}
+import chat_apps  # noqa: E402
+
+CHAT = {p: k for p, k in chat_apps.PKG_APP.items() if k in chat_apps.DM_APPS}
 
 _POL = r"(?:\s*(?:ให้หน่อย|หน่อย|ให้ที|ที|ครับ|ค่ะ|คะ|นะ|ด้วย|เลย|ซิ|สิ))*\s*$"
 _NEXT = re.compile(r"^(?:(?:ช่วย)?\s*(?:เปิด|เล่น|ขอ|เปลี่ยน)?\s*(?:เป็น)?\s*(?:เพลง|คลิป|อัน)\s*(?:อื่น|ต่อไป|ถัดไป|ใหม่)|"
