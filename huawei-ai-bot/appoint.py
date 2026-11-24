@@ -478,6 +478,11 @@ def handle_text(text, ctx=None):
         if _CANCEL.match(t):
             _S.clear()
             return f"ยกเลิกแล้ว{_p()}"
+        import interrupt
+        if interrupt.is_new_command(t) and not _START_APPT.search(t) and not _START_JOB.search(t):
+            print(f"[appoint] ทิ้งคำถามค้าง — คำสั่งใหม่: {t[:60]!r}", flush=True)   # เปลี่ยนใจไปสั่งงานอื่น
+            _S.clear()
+            return None
         kind = _S["kind"]
         if _S.get("confirm"):
             if _YES.match(t):

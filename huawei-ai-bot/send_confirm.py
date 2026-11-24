@@ -105,17 +105,8 @@ def resolved():
 
 
 def _new_command(t):
-    """ประโยคนี้เป็นคำสั่งใหม่ทั้งประโยค ไม่ใช่คำตอบของคำถามค้าง
-    ('เข้าไปที่ instagram เข้าไปที่แชท ภรรยา ส่งข้อความ …' ห้ามถูกอ่านเป็น 'เลือกภรรยา (LINE)')"""
-    if len(t) <= 20:
-        return False
-    try:
-        import quick
-        if quick._DM_INTENT.search(t):
-            return True
-    except Exception:  # noqa: BLE001
-        pass
-    return bool(re.search(r"(เข้า|เปิด|ไปที่|ไปหน้า)\s*(ไป)?\s*(ที่|ใน)?\s*(แชท|แชต|แอป|แอพ|ห้อง)", t))
+    import interrupt
+    return interrupt.is_new_command(t)
 
 
 def _spoken_app(t):
