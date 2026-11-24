@@ -1,6 +1,7 @@
 """ผู้ช่วยเชิงรุก (Proactive Assistant): ผู้ช่วยเป็นฝ่ายบอกก่อน ไม่ต้องรอให้สั่ง
 1. สรุปตอนเช้า: ทักทาย + อากาศ + นัดวันนี้ + แชทที่ยังไม่ได้อ่าน (ครั้งแรกที่ใช้งานช่วงเช้า หรือสั่ง "สรุปเช้า")
 2. เตือนก่อนนัด: อีก ~30 นาทีถึงนัด → บอกเอง (ครั้งเดียวต่อนัด)
+4. แบตใกล้หมด (20% · 10%) / เครื่องร้อน → บอกเองครั้งเดียวต่อรอบ (PROACTIVE_BATTERY=0 ปิด)
 3. สรุปแชทที่ยังไม่อ่าน: "มีใครทักมาบ้าง" · "ไลน์จากแม่ว่าอะไร" → อ่านให้ฟัง แล้วสั่ง "ตอบกลับว่า…" ได้ต่อทันที
 
 นัดอ่านจากปฏิทินในเครื่อง (สิทธิ์ปฏิทิน) หรือ Google Calendar ที่เชื่อมไว้ · แชทอ่านจากแจ้งเตือนที่ค้างอยู่
@@ -226,6 +227,43 @@ def event_alerts(lead_min=None):
     return out
 
 
+def _forget(prefix):
+    with _lock:
+        d = _state()
+        if any(k.startswith(prefix) for k in d):
+            _save({k: v for k, v in d.items() if not k.startswith(prefix)})
+
+
+def battery_alerts():
+    """แบตใกล้หมด (20% · 10%) ตอนไม่ได้ชาร์จ / เครื่องร้อน → บอกเอง ครั้งเดียวต่อรอบการใช้แบต
+    เสียบชาร์จแล้ว = เริ่มนับใหม่ · ปิดได้: PROACTIVE_BATTERY=0"""
+    if os.environ.get("PROACTIVE_BATTERY", "1").strip().lower() in ("0", "off", "false", "no"):
+        return []
+    import phone_tools
+    try:
+        b = json.loads(phone_tools.battery_status({}, None) or "")
+        pct = int(float(b.get("percentage")))
+    except (ValueError, TypeError, AttributeError):
+        return []
+    status = str(b.get("status", "")).upper()
+    out = []
+    if status in ("CHARGING", "FULL"):
+        _forget("bat|")                                   # ชาร์จแล้ว → รอบหน้าแบตลดอีกค่อยเตือนใหม่
+    else:
+        for lvl in (10, 20):
+            if pct <= lvl:
+                if _once(f"bat|{lvl}"):
+                    out.append(f"แบตเหลือ {pct}% แล้ว{' ใกล้หมดมาก' if lvl == 10 else ''} เสียบชาร์จด้วยนะ{_p()}")
+                break
+    try:
+        temp = float(b.get("temperature"))
+    except (TypeError, ValueError):
+        temp = None
+    if temp is not None and temp >= 42 and _once(f"hot|{_now():%Y%m%d%H}"):
+        out.append(f"เครื่องร้อน {round(temp)} องศาแล้ว พักเครื่องหรือถอดเคสสักครู่นะ{_p()}")
+    return out
+
+
 def tick():
     """หนึ่งรอบความคิด → รายการข้อความที่ควรบอกผู้ใช้ตอนนี้"""
     if not on() or config.paused():
@@ -235,6 +273,10 @@ def tick():
         msgs += event_alerts()
     except Exception as e:  # noqa: BLE001
         print(f"[proactive] alerts: {e}", flush=True)
+    try:
+        msgs += battery_alerts()
+    except Exception as e:  # noqa: BLE001
+        print(f"[proactive] battery: {e}", flush=True)
     now = _now()
     if 6 <= now.hour < 11 and _once(f"brief|{now:%Y%m%d}"):
         try:
