@@ -214,6 +214,8 @@ object AssistantPanel {
             }
             return@post
         }
+        // บอทกำลังกดหน้าจออยู่ → ยังไม่โชว์แผง (บังช่องพิมพ์) · ผลลัพธ์/ข้อผิดพลาดโชว์ได้
+        if (root == null && System.currentTimeMillis() < Bridge.actingUntil && state != "done" && state != "error") return@post
         if (!ensure()) return@post
         main.removeCallbacks(hideTask)
         dots?.state = state
@@ -241,6 +243,17 @@ object AssistantPanel {
 
     private fun stopVoice() {
         try { Player.stop() } catch (_: Exception) {}
+    }
+
+    fun showing(): Boolean = root != null
+
+    /** บอทจะกดหน้าจอ → เอาแผงออกทันที (ไม่รอแอนิเมชัน) ไม่ให้บังช่องพิมพ์/ปุ่มส่งของแอปที่กำลังใช้ */
+    fun hideForAction() {
+        val r = root ?: return
+        root = null; card = null; dots = null
+        main.removeCallbacks(hideTask)
+        val wm = ctx().getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        try { wm.removeViewImmediate(r) } catch (_: Exception) {}
     }
 
     fun hideNow() {

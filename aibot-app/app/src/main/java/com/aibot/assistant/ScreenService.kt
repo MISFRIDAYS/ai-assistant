@@ -226,19 +226,24 @@ class ScreenService : AccessibilityService() {
     fun focusedInput(): AccessibilityNodeInfo? {
         val f = findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         if (f != null && f.isEditable && f.packageName?.toString() != packageName) return f
-        // ไม่มีช่องที่โฟกัส → ช่องพิมพ์แรกบนจอ
-        return findEditable(rootInActiveWindow, 0)
+        // ไม่มีช่องที่โฟกัส → ช่องพิมพ์ที่อยู่ล่างสุดของแอปที่ใช้อยู่ (ช่องแชท ไม่ใช่ช่องค้นหาด้านบน)
+        val all = ArrayList<AccessibilityNodeInfo>()
+        collectEditable(rootInActiveWindow, 0, all)
+        if (all.isEmpty()) {                              // หน้าต่างที่ active เป็นแผงของผู้ช่วยเอง → ดูหน้าต่างแอปอื่นบนจอ
+            val wins = try { windows } catch (_: Exception) { emptyList() }
+            for (w in wins) collectEditable(try { w.root } catch (_: Exception) { null }, 0, all)
+        }
+        if (all.isEmpty()) return null
+        val rect = android.graphics.Rect()
+        return all.maxByOrNull { it.getBoundsInScreen(rect); rect.bottom }
     }
 
-    private fun findEditable(n: AccessibilityNodeInfo?, depth: Int): AccessibilityNodeInfo? {
-        if (n == null || depth > 60) return null
-        if (n.isEditable && n.isVisibleToUser && n.packageName?.toString() != packageName) return n
-        for (i in 0 until n.childCount) {
-            val r = findEditable(n.getChild(i), depth + 1)
-            if (r != null) return r
-        }
-        return null
+    private fun collectEditable(n: AccessibilityNodeInfo?, depth: Int, out: MutableList<AccessibilityNodeInfo>) {
+        if (n == null || depth > 60) return
+        if (n.isEditable && n.isVisibleToUser && n.packageName?.toString() != packageName) out.add(n)
+        for (i in 0 until n.childCount) collectEditable(n.getChild(i), depth + 1, out)
     }
+
 
     fun setText(text: String, append: Boolean): Boolean {
         val n = focusedInput() ?: return false

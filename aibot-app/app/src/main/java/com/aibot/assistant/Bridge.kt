@@ -255,7 +255,17 @@ object Bridge {
     @JvmStatic fun a11yOn(): Boolean = ScreenService.inst != null
 
     /** สั่งงานบนจอขณะเปิดหน้าแชทของแอปอยู่ → ถอยแอปไปเบื้องหลังก่อน (ไม่งั้นจะพิมพ์/แตะโดนแอปตัวเอง) */
+    /** บอทกำลังกดหน้าจอถึงเวลานี้ (ms) — ระหว่างนี้แผงผู้ช่วยไม่โผล่มาบังปุ่ม/ช่องพิมพ์ของแอปอื่น */
+    @Volatile @JvmStatic var actingUntil = 0L
+
     @JvmStatic fun away() {
+        actingUntil = System.currentTimeMillis() + 4000
+        if (AssistantPanel.showing()) {                 // แผงผู้ช่วยลอยอยู่ล่างจอ → บังช่องพิมพ์แชท (แตะแล้วโดนแผงแทน)
+            val h = CountDownLatch(1)
+            main.post { try { AssistantPanel.hideForAction() } finally { h.countDown() } }
+            h.await(1, TimeUnit.SECONDS)
+            Thread.sleep(150)
+        }
         val a = App.top ?: return
         if (a is ListenActivity) return
         val l = CountDownLatch(1)
@@ -284,11 +294,8 @@ object Bridge {
         val s = ScreenService.inst
         if (s?.focusedIsPassword() == true) return false              // ห้ามพิมพ์ลงช่องรหัสผ่าน
         val ok = s?.setText(text, append) ?: false
-        if (ok && s?.textLanded(text) != false) return true
-        // แอปไม่รับข้อความผ่านระบบช่วยเหลือ (เช่น แอปบันทึก Huawei) → พิมพ์ผ่านคีย์บอร์ดผู้ช่วยแทน
-        val viaIme = try { BotIme.type(app, text, false) } catch (e: Exception) { log("ime type: $e"); false }
-        if (viaIme) { viaImeFlag = true; log("⌨️ พิมพ์ผ่านคีย์บอร์ดผู้ช่วยแล้ว") }
-        return viaIme
+        // ไม่สลับไปใช้คีย์บอร์ดผู้ช่วยแล้ว (เด้งกล่องเลือกคีย์บอร์ด/เปลี่ยนคีย์บอร์ดของผู้ใช้) — ใส่ไม่ได้ = บอกตามจริง
+        return ok && s?.textLanded(text) != false
     }
 
     /** สถานะคีย์บอร์ดผู้ช่วย (JSON): เปิดใช้ในระบบแล้วไหม / ใช้อยู่ไหม / สลับเองได้ไหม */

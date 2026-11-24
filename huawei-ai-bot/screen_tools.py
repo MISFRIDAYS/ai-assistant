@@ -539,6 +539,14 @@ def _human_type(b, text):
     return True
 
 
+def _in_chat_app():
+    try:
+        import chat_apps
+        return _current_app() in chat_apps.PKG_APP
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _longpress_paste(b):
     """แอปที่วาดช่องพิมพ์เอง (WPS, Docs ฯลฯ) ใส่ข้อความตรงๆ ไม่ได้ → กดค้างกลางหน้าเอกสาร แล้วกด "วาง" """
     try:
@@ -572,7 +580,14 @@ def type_text(a, ctx):
         else:
             b.clipboardSet(text)
             time.sleep(0.2)
-            res = "OK" if b.paste() else _longpress_paste(b)
+            if b.paste():
+                res = "OK"
+            elif _in_chat_app():
+                # แอปแชท: ห้ามกดค้างกลางจอ (โดนข้อความในห้องแชท → เมนูกดค้าง/ตอบกลับผิดข้อความ)
+                res = ("ERROR: ใส่ข้อความลงช่องพิมพ์ไม่ได้ (ช่องพิมพ์อาจถูกบัง หรือยังไม่ได้แตะช่องพิมพ์) "
+                       "— ข้อความอยู่ในคลิปบอร์ดแล้ว")
+            else:
+                res = _longpress_paste(b)                 # แอปเอกสาร (WPS ฯลฯ) ที่วาดช่องพิมพ์เอง
     elif text.isascii() and len(text) < 200:
         safe = text.replace("\\", "\\\\").replace(" ", "%s")
         for ch in "\"'`$&|;<>()*?!#~":
@@ -595,7 +610,8 @@ def type_text(a, ctx):
             time.sleep(0.3)
             res = adb_shell(["input", "keyevent", str(KEYS["paste"])])
     if res.startswith("ERROR"):
-        return f"ERROR: พิมพ์ไม่สำเร็จ ({res[:80]})"
+        why = re.sub(r"^ERROR:\s*", "", res)
+        return f"ERROR: พิมพ์ไม่สำเร็จ — {why[:180]}"
     if a.get("press_enter"):                       # ช่องค้นหา → Enter
         adb_shell(["input", "keyevent", str(KEYS["enter"])])
         time.sleep(0.5)
