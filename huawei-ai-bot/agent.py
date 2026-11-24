@@ -308,6 +308,59 @@ def _local_window(history, n=16):
     return out
 
 
+def _text_of(content):
+    if isinstance(content, str):
+        return content
+    return " ".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+
+
+def _task_window(history, start, keep_prev=6, recent_results=2):
+    """ประวัติสำหรับงานสั่งเครื่อง (ส่งให้ AI ทุกขั้น)
+    - งานก่อนหน้า: เก็บเป็นบทสนทนาจริง แต่เหลือแค่ข้อความ (ตัดคำเรียกเครื่องมือ/ผลหน้าจอ) ไม่เกิน keep_prev ข้อความ
+    - งานนี้: ส่งครบ แต่ผลเครื่องมือเก่าย่อ (เต็มแค่ recent_results ผลล่าสุด · รูปหน้าจอเก่าตัดออก)
+    ปิดได้ด้วย TASK_CONTEXT=full"""
+    if os.environ.get("TASK_CONTEXT", "") == "full":
+        return history
+    prev = []
+    for m in history[:start]:
+        c = m.get("content")
+        blocks = [{"type": "text", "text": c}] if isinstance(c, str) else \
+            [b for b in (c or []) if isinstance(b, dict) and b.get("type") == "text" and b.get("text", "").strip()]
+        if not blocks:
+            continue
+        if prev and prev[-1]["role"] == m["role"]:
+            prev[-1] = {"role": m["role"], "content": prev[-1]["content"] + blocks}
+        else:
+            prev.append({"role": m["role"], "content": blocks})
+    prev = prev[-keep_prev:]
+    while prev and prev[0]["role"] != "user":
+        prev.pop(0)
+    cur = [dict(m) for m in history[start:]]
+    with_results = [i for i, m in enumerate(cur) if m["role"] == "user" and not _is_plain_user(m)]
+    old = set(with_results[:-recent_results]) if recent_results else set(with_results)
+    for i in old:
+        c = []
+        for b in cur[i]["content"]:
+            if b.get("type") == "tool_result":
+                v = b.get("content")
+                if isinstance(v, str) and len(v) > 300:
+                    b = {**b, "content": v[:300] + "…(ย่อ)"}
+                elif isinstance(v, list):
+                    b = {**b, "content": (_text_of(v)[:300] or "(รูปหน้าจอเก่า — ตัดออก)")}
+            c.append(b)
+        cur[i] = {"role": cur[i]["role"], "content": c}
+    if cur and cur[0]["role"] == "user" and not isinstance(cur[0]["content"], str):
+        # ข้อความแรกของงานนี้อาจถูกรวมกับผลเครื่องมือของงานก่อน (ไม่มีคำเรียกเครื่องมือคู่กันแล้ว) → เหลือแต่ข้อความ
+        c0 = [b for b in cur[0]["content"] if b.get("type") != "tool_result"]
+        cur[0] = {"role": "user", "content": c0 or [{"type": "text", "text": "(ต่อ)"}]}
+    if prev and cur and prev[-1]["role"] == cur[0]["role"] == "user":
+        c0 = cur[0]["content"]
+        c0 = [{"type": "text", "text": c0}] if isinstance(c0, str) else list(c0)
+        cur[0] = {"role": "user", "content": prev[-1]["content"] + c0}
+        prev = prev[:-1]
+    return prev + cur
+
+
 def _call_provider(name, history, tools, on_text, system=None):
     sp = system or system_prompt()
     if name == "ollama":
@@ -793,6 +846,7 @@ def _chat_locked(chat_id, user_content, ctx, on_text=None):
         except Exception:  # noqa: BLE001
             pass
         _append_user(history, [stamp] + list(user_content) + extra)
+        task_start = len(history) - 1            # ข้อความผู้ใช้ของงานนี้ (ก่อนหน้านี้ = งานเก่า → ส่งแบบย่อ)
         trace = []                                # ขั้นตอนที่ทำรอบนี้ (ไว้จำเป็นสกิลถ้าสำเร็จ)
         try:                                      # ตอบรับทันที ("โอเคครับ") ไม่ต้องรอ AI คิดขั้นแรกเสร็จ (~5 วิ)
             ctx.status("⚙️ กำลังทำ")
@@ -812,7 +866,7 @@ def _chat_locked(chat_id, user_content, ctx, on_text=None):
                     break
                 t0 = time.time()
                 # ยังไม่ได้ลงมือทำอะไร → ยังไม่พูด/แสดงข้อความ (กันพูด "ทำให้แล้ว" ทั้งที่ยังไม่ได้ทำ)
-                resp, who = call_llm(history, tools, on_text if trace else None)
+                resp, who = call_llm(_task_window(history, task_start), tools, on_text if trace else None)
                 u = resp.get("usage", {})
                 try:
                     import extras
