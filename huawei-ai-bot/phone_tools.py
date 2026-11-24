@@ -419,7 +419,21 @@ ALT_PKGS = {   # Google/AOSP · Huawei · Samsung · Xiaomi/Redmi (MIUI/HyperOS)
               "com.coloros.filemanager", "com.oplus.filemanager"),
 }
 
-ALIASES = {
+class _Aliases(dict):
+    """ชื่อเรียกแอป → ชื่อมาตรฐาน · ไม่มีในตาราง → ลองตารางแอปแชทกลาง (รู้จักสะกดเพี้ยน เช่น 'instragram')"""
+
+    def get(self, k, default=None):
+        if k in self:
+            return self[k]
+        if isinstance(k, str):
+            import chat_apps
+            c = chat_apps.key(k)
+            if c:
+                return c
+        return default
+
+
+ALIASES = _Aliases({
     "fb": "facebook", "เฟส": "facebook", "เฟสบุ๊ค": "facebook", "เฟซบุ๊ก": "facebook",
     "ig": "instagram", "ไอจี": "instagram", "อินสตาแกรม": "instagram",
     "ยูทูป": "youtube", "ยูทูบ": "youtube", "yt": "youtube", "ติ๊กต็อก": "tiktok", "ติ๊กตอก": "tiktok",
@@ -439,7 +453,7 @@ ALIASES = {
     "คลอด": "claude", "คล็อด": "claude", "เคลาด์": "claude", "เคลด": "claude", "คลอดด์": "claude", "claude ai": "claude",
     "แชทจีพีที": "chatgpt", "chat gpt": "chatgpt", "แชตจีพีที": "chatgpt", "gpt": "chatgpt",
     "เจมิไน": "gemini", "เจมินาย": "gemini", "google gemini": "gemini",
-}
+})
 
 
 # หน้าภายในแอป (เปิดแอปแล้วแตะไปหน้านี้ให้เลย)

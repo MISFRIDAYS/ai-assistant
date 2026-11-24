@@ -42,6 +42,11 @@ _ANY_RX = re.compile(ANY, re.I)
 _ONE = {k: re.compile(rf"^(?:{w})$", re.I) for k, w in WORDS.items()}
 
 
+def rx(keys=None):
+    """regex (ไม่จับกลุ่ม) ของคำเรียกแอปที่ระบุ — ใช้ฝังในประโยคคำสั่งของโมดูลอื่น"""
+    return "(?:" + "|".join(WORDS[k] for k in (keys or APPS)) + ")"
+
+
 def key(word, dm=False):
     """คำที่พูด/พิมพ์ → ชื่อแอปมาตรฐาน หรือ None
     dm=True: ส่งข้อความหาคน → 'เฟส/facebook' หมายถึง messenger (ส่งข้อความในแอป Facebook ไม่ได้)"""

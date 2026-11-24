@@ -518,12 +518,18 @@ def start(notify):
 
 # ================================================================ คำสั่งภาษาพูด
 
-_APPS = {"ไลน์": "jp.naver.line.android", "line": "jp.naver.line.android", "เมสเซนเจอร์": "com.facebook.orca",
-         "messenger": "com.facebook.orca", "ไอจี": "com.instagram.android", "instagram": "com.instagram.android",
-         "ig": "com.instagram.android", "วอทส์แอป": "com.whatsapp", "whatsapp": "com.whatsapp",
-         "เทเลแกรม": "org.telegram.messenger", "telegram": "org.telegram.messenger", "sms": "com.google.android.apps.messaging",
-         "เฟส": "com.facebook.katana", "facebook": "com.facebook.katana"}
-_APP_RX = "|".join(sorted(map(re.escape, _APPS), key=len, reverse=True))
+import chat_apps  # noqa: E402
+
+_AR_APPS = ("line", "messenger", "instagram", "whatsapp", "telegram", "sms", "facebook")
+_APP_RX = chat_apps.rx(_AR_APPS)            # คำเรียกแอปจากตารางกลาง (รู้จักสะกดเพี้ยน)
+
+
+def _app_pkg(word):
+    """'ไอจี' → com.instagram.android · ไม่ระบุ/ไม่รู้จัก → '*' (ทุกแอปแชท) · 'เฟส' = แอป Facebook"""
+    k = chat_apps.key(word)
+    return chat_apps.APP_PKG[k] if k in _AR_APPS else "*"
+
+
 _AWAY_ON = re.compile(r"^(?:เปิด)?\s*โหมดไม่อยู่$|^(?:ฉัน|ผม|เรา)?\s*ไม่อยู่(?:แล้ว|นะ|ก่อนนะ)?$|^ไปก่อนนะ$|^ฝากตอบแชทด้วย$")
 _AWAY_OFF = re.compile(r"^(?:ปิดโหมดไม่อยู่|กลับมาแล้ว|ถึงแล้ว|มาแล้ว)$")
 _SUMMARY = re.compile(r"ใคร(?:ทัก|ส่งข้อความ)มา(?:บ้าง)?(?:ตอน|ระหว่าง)ไม่อยู่|ตอบแทน(?:ไป)?อะไรบ้าง|สรุปแชทที่ตอบแทน")
@@ -556,12 +562,12 @@ def handle_text(text, ctx=None):
         return summary()
     m = _SET_FIXED.match(t)
     if m:
-        pkg = _APPS.get((m.group("app") or "").lower(), "*")
+        pkg = _app_pkg(m.group("app"))
         r = upsert(new_rule(app=pkg, app_label=CHAT_PKGS.get(pkg, "ทุกแอปแชท"), mode="fixed", text=m.group("t").strip()))
         return f"✅ ตั้งตอบกลับอัตโนมัติใน {r['app_label']} แล้ว (ตอนไม่อยู่): \"{r['text']}\""
     m = _SET_AI.match(t)
     if m:
-        pkg = _APPS.get((m.group("app") or "").lower(), "*")
+        pkg = _app_pkg(m.group("app"))
         r = upsert(new_rule(app=pkg, app_label=CHAT_PKGS.get(pkg, "ทุกแอปแชท"), mode="ai", text=""))
         return (f"🤖 ให้ AI ตอบแชทแทนใน {r['app_label']} ตอนไม่อยู่แล้ว (ไม่รับปาก/ไม่บอกข้อมูลส่วนตัว · มีป้าย 🤖) "
                 "— สั่ง \"ไม่อยู่นะ\" เพื่อเริ่ม")

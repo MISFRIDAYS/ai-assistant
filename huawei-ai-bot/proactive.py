@@ -278,10 +278,9 @@ def spoken(text):
 _BRIEF = re.compile(r"^(?:ช่วย)?\s*(?:สรุป(?:ตอน)?เช้า|สรุปวันนี้|บรีฟ(?:วันนี้)?|briefing|วันนี้มีอะไรบ้าง|"
                     r"สรุปให้ฟังหน่อยวันนี้|มีอะไรใหม่(?:บ้าง)?|อรุณสวัสดิ์(?:ผู้ช่วย)?)"
                     r"\s*(?:หน่อย|ให้หน่อย|ที|ครับ|ค่ะ|คะ|นะ)*$", re.I)
-_APPS = {"ไลน์": "line", "line": "line", "ไอจี": "instagram", "อินสตา": "instagram", "ig": "instagram",
-         "เมสเซนเจอร์": "messenger", "เฟส": "messenger", "messenger": "messenger", "วอทส์แอป": "whatsapp",
-         "whatsapp": "whatsapp", "เทเลแกรม": "telegram", "telegram": "telegram"}
-_APP_RX = "|".join(sorted(map(re.escape, _APPS), key=len, reverse=True))
+import chat_apps  # noqa: E402
+
+_APP_RX = chat_apps.rx(("line", "instagram", "messenger", "facebook", "whatsapp", "telegram"))
 _WHO_SAID = re.compile(r"^(?:(?P<app>" + _APP_RX + r")\s*)?(?:จาก|ของ)?\s*(?P<who>.+?)\s*"
                        r"(?:ทัก(?:มา)?|ส่ง(?:มา)?|พิมพ์มา|บอก)?\s*(?:ว่า)\s*(?:อะไร|ไง|ยังไง)"
                        r"(?:\s*(?:ใน|ทาง)\s*(?P<app2>" + _APP_RX + r"))?\s*(?:บ้าง|หน่อย|ครับ|ค่ะ|คะ|นะ)*$", re.I)
@@ -317,7 +316,7 @@ def handle_text(text, ctx=None):
     if m:
         who = m.group("who").strip()
         who = re.sub(r"^(?:ข้อความ|แชท)\s*(?:จาก|ของ)?\s*", "", who).strip()
-        app = _APPS.get((m.group("app") or m.group("app2") or "").lower())
+        app = chat_apps.key(m.group("app") or m.group("app2") or "", dm=True)    # "เฟส" = messenger
         generic = re.fullmatch(r"(?:ใคร|คน|มีใคร|ใครบ้าง)", who)
         chat_cue = app or re.search(r"ทัก|ส่ง(?:มา)?\s*ว่า|พิมพ์มา|แชท|ข้อความ", t)
         if generic and chat_cue:
