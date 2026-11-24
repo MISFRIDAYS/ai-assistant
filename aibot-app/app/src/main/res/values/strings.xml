@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ผู้ช่วย AI</string>
+    <string name="a11y_label">ผู้ช่วย AI — ควบคุมหน้าจอ</string>
+    <string name="a11y_desc">ให้ผู้ช่วย AI อ่านหน้าจอ แตะ พิมพ์ และกดปุ่มแทนคุณตามคำสั่ง (เปิดแอป ส่งข้อความ กรอกฟอร์ม) ข้อมูลบนจอใช้ในเครื่องเพื่อทำคำสั่งเท่านั้น</string>
+    <string name="notif_label">ผู้ช่วย AI — อ่าน/ตอบแจ้งเตือน</string>
+</resources>

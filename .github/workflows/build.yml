@@ -1,8 +1,11 @@
 name: Build APK
 on:
   push:
-    paths:          # build เฉพาะเมื่ออัปโหลด zip ใหม่ / แก้ workflow (แก้เอกสารไม่ build เปล่า)
-      - '*.zip'
+    paths:          # build เมื่อแก้โค้ดแอป/บอท หรือ workflow (แก้เอกสาร/tasks ไม่ build เปล่า)
+      - 'aibot-app/**'
+      - 'huawei-ai-bot/**'
+      - '*.gradle.kts'
+      - 'gradle/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
 permissions:
@@ -12,13 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip project
-        run: |
-          Z=$(ls *.zip | sort -V | tail -1)
-          echo "ใช้ไฟล์ $Z"
-          unzip -q -o "$Z" -d src
-          D=$(dirname $(find src -type d -name aibot-app | head -1))
-          echo "ROOT=$D" >> $GITHUB_ENV
+      - name: Project root
+        # โค้ดอยู่ในโฟลเดอร์ของ repo ตรง ๆ แล้ว (ไม่ต้องแตก zip)
+        run: echo "ROOT=$GITHUB_WORKSPACE" >> $GITHUB_ENV
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -73,9 +72,14 @@ jobs:
           unzip -l "$ROOT/aibot-app/app/build/outputs/apk/debug/app-debug.apk" | grep -q "assets/bot/tester_defaults.env" \
             && echo "พบค่าตั้งต้นของรุ่นผู้ทดลองใน APK" \
             || { echo "ไม่พบ tester_defaults.env ใน APK"; exit 1; }
+      - name: Source zip
+        # แนบโค้ดทั้งชุดเป็น zip ไว้ในหน้า Release ด้วย (ดาวน์โหลดไปใช้แบบเดิมได้)
+        run: cd "$ROOT" && git archive --format=zip -o ai-assistant-src.zip HEAD
       - name: Publish APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: ผู้ช่วย AI build ${{ github.run_number }}
-          files: ${{ env.ROOT }}/aibot-app/app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            ${{ env.ROOT }}/aibot-app/app/build/outputs/apk/debug/app-debug.apk
+            ${{ env.ROOT }}/ai-assistant-src.zip

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.gradle/
+build/
+local.properties
+huawei-ai-bot/data/
+huawei-ai-bot/.env
+huawei-ai-bot/tester_defaults.env
