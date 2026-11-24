@@ -8,21 +8,24 @@ import time
 
 import config
 
+import chat_apps  # noqa: E402
+
+# แอปแชทใช้คำเรียกจากตารางกลาง (รู้จักสะกดเพี้ยน เช่น 'Instragram') · แอปอื่นกำหนดที่นี่
 _APP = {
-    "facebook": r"เฟส(?:บุ๊ค|บุ๊ก|บุค)?|เฟซ(?:บุ๊ก|บุ๊ค)?|facebook|fb",
-    "instagram": r"ไอจี|อินสตา(?:แกรม)?|instagram|ig",
-    "line": r"ไลน์|line",
-    "messenger": r"เมสเซนเจอร์|เมสเซ็นเจอร์|messenger",
-    "whatsapp": r"วอทส์แอป|วอทแอป|whatsapp",
-    "tiktok": r"ติ๊กต็อก|ติ๊กตอก|tiktok",
-    "x": r"ทวิตเตอร์|twitter|x",
-    "youtube": r"ยูทูป|ยูทูบ|youtube",
-    "threads": r"เธรดส์|threads",
+    "facebook": chat_apps.WORDS["facebook"],
+    "instagram": chat_apps.WORDS["instagram"],
+    "line": chat_apps.WORDS["line"],
+    "messenger": chat_apps.WORDS["messenger"],
+    "whatsapp": chat_apps.WORDS["whatsapp"],
+    "tiktok": r"ติ๊กต็อก|ติ๊กตอก|ติกต็อก|(?<![a-z])tiktok(?![a-z])",
+    "x": r"ทวิตเตอร์|(?<![a-z])(?:twitter|x)(?![a-z])",
+    "youtube": r"ยูทูป|ยูทูบ|(?<![a-z])youtube(?![a-z])",
+    "threads": r"เธรดส์|(?<![a-z])threads(?![a-z])",
 }
 _APPS_RX = "|".join(f"(?P<{k}>{v})" for k, v in _APP.items())
 _POL = r"(?:\s*(?:ให้หน่อย|หน่อย|ให้ที|ที|ครับ|ค่ะ|คะ|นะ|ด้วย|เลย))*"
 
-_FEED = re.compile(r"^(?:ช่วย)?\s*(?:เข้า|เปิด|ไป|ดู|ไล่)?\s*(?:แอป)?\s*(?:" + _APPS_RX + r")\s*(?:แล้ว|และ|จากนั้น)?\s*(?:ก็)?\s*"
+_FEED = re.compile(r"^(?:ช่วย)?\s*(?:เข้า|เปิด|ไป|ดู|ไล่)?\s*(?:ไป)?\s*(?:ที่|ใน)?\s*(?:แอป|แอพ)?\s*(?:" + _APPS_RX + r")\s*(?:แล้ว|และ|จากนั้น)?\s*(?:ก็)?\s*"
                    r"(?:หา|ดู|สรุป|อ่าน|ไล่ดู|เช็ค|เช็ก|ว่า)\s*(?P<what>.*?(?:โพส|โพสต์|ฟีด|feed|คลิป|ข่าว|อัปเดต|อัพเดท|"
                    r"น่าสนใจ|มีอะไร|เทรนด์|ทวีต|เรื่อง).*?)" + _POL + r"$", re.I)
 _CALL = re.compile(r"^(?:ช่วย)?\s*(?:(?:เข้า|เปิด|ไป)\s*(?:แอป)?\s*(?:" + _APPS_RX.replace("?P<", "?P<a_") + r")\s*(?:แล้ว|และ)?\s*)?"
@@ -48,8 +51,12 @@ _JUNK = re.compile(r"^(ถูกใจ|like|แสดงความคิดเ
 
 def _read_lines():
     import share_tools
+    return _read_lines_from(share_tools._items())
+
+
+def _read_lines_from(items):
     out = []
-    for e in share_tools._items():
+    for e in items:
         for t in (e.get("text") or "", e.get("desc") or ""):
             t = " ".join(t.split())
             if len(t) >= 6 and not _JUNK.match(t):
@@ -57,43 +64,96 @@ def _read_lines():
     return out
 
 
-def feed_summary(app, what="", ctx=None, pages=4):
+_SUMMARY_SYS = ("คุณคือผู้ช่วยที่สรุปฟีดโซเชียลเป็นภาษาไทย สั้น กระชับ อ่านออกเสียงได้ลื่น "
+                "ใช้ข้อมูลที่ให้มาเท่านั้น ห้ามแต่งเพิ่ม")
+
+
+def _summarize(prompt):
+    """สรุปฟีด: Groq ก่อน (~1-2 วิ) → ตัวหลัก (system prompt สั้น ไม่ต้องส่งคำสั่งระบบทั้งชุด)"""
+    import agent
+    msgs = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+    if config.GROQ_API_KEY and config.LLM_PROVIDER != "groq" and time.time() >= agent._fast_chat_off[0]:
+        try:
+            import groq_client
+            resp = groq_client.create_message(_SUMMARY_SYS, msgs, [], 700)
+            out = agent._collect_text(resp.get("content", [])).strip()
+            if out:
+                return out, "Groq"
+        except Exception as e:  # noqa: BLE001
+            print(time.strftime("[%H:%M:%S]"), "สรุปฟีดด้วย Groq ไม่ได้ → ใช้ตัวหลัก:", str(e)[:80], flush=True)
+    resp, who = agent.call_llm(msgs, [], system=_SUMMARY_SYS)
+    return agent._collect_text(resp.get("content", [])).strip(), who
+
+
+def _fresh_lines(seen, lines):
+    new = 0
+    for t in _read_lines():
+        k = t[:60]
+        if k not in seen:
+            seen.add(k)
+            lines.append(t)
+            new += 1
+    return new
+
+
+def _ack(ctx, text):
+    """สั่งด้วยเสียง + งานใช้เวลาหลายวิ → พูดตอบรับก่อนทันที (ไม่ให้เงียบจนผู้ใช้คิดว่าไม่ได้ยิน)"""
+    if ctx is None or config.MOCK_PHONE:
+        return
+    if not (type(ctx).__name__ == "VoiceCtx" or getattr(ctx, "voice", False) or getattr(ctx, "via_voice", False)):
+        return
+    try:
+        import voice
+        import voice_profile
+        voice.say(f"{voice_profile.ack_word()} {text}", wait=False)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def feed_summary(app, what="", ctx=None, pages=3):
+    """เปิดฟีด → อ่าน `pages` หน้าจอ → สรุป (รอตามจริงแทนการหน่วงตายตัว: ฟีดขึ้นเมื่อไหร่อ่านทันที)"""
     import phone_tools
     import screen_tools
+    import share_tools
+    t0 = time.time()
+    _ack(ctx, f"กำลังดูฟีด {chat_apps.LABEL.get(app, app)} ให้")
     res = phone_tools.open_app({"app": app, "fresh": True}, ctx)
     if res.startswith("ERROR"):
         return res
-    time.sleep(3.0)
     seen, lines = set(), []
+    # รอจนฟีดมีข้อความพอ (สูงสุด 8 วิ) แทน sleep 3 วิทุกครั้ง
+    ok = share_tools._wait_items(lambda it: sum(1 for t in _read_lines_from(it) if len(t) >= 20) >= 2,
+                                 timeout=8.0, every=0.6)
+    if ok is None:
+        try:
+            _read_lines()
+        except RuntimeError as e:
+            return f"ERROR: อ่านหน้าจอไม่ได้ ({e})"
     for i in range(pages):
         try:
-            for t in _read_lines():
-                k = t[:60]
-                if k not in seen:
-                    seen.add(k)
-                    lines.append(t)
+            _fresh_lines(seen, lines)
         except RuntimeError as e:
             if i == 0:
                 return f"ERROR: อ่านหน้าจอไม่ได้ ({e})"
         if i < pages - 1:
             screen_tools.swipe({"direction": "up"}, ctx)
-            time.sleep(2.0)
+            time.sleep(1.0)
+    t_read = time.time() - t0
     text = "\n".join(lines)[:6000]
     if len(text) < 40:
         return f"เปิด {app} แล้ว แต่อ่านโพสต์บนจอไม่ออก (ฟีดอาจยังโหลดไม่เสร็จ) ลองสั่งอีกครั้งนะ"
     if config.MOCK_PHONE:
         return text[:500]
-    import agent
     prompt = (f"นี่คือข้อความที่อ่านได้จากหน้าฟีด {app} ของผู้ใช้ (เลื่อนดู {pages} หน้าจอ) "
               f"ผู้ใช้อยากรู้: \"{what or 'โพสต์ที่น่าสนใจวันนี้'}\"\n"
-              "สรุปโพสต์ที่น่าสนใจ 3-6 อัน เป็นข้อๆ: ใครโพสต์ + เนื้อหาโดยย่อ · ข้ามโฆษณา/ได้รับการสนับสนุน/เมนูแอป · "
+              "สรุปโพสต์ที่น่าสนใจ 3-5 อัน เป็นข้อๆ: ใครโพสต์ + เนื้อหาโดยย่อ · ข้ามโฆษณา/ได้รับการสนับสนุน/เมนูแอป · "
               "ถ้าข้อมูลน้อยให้บอกตามจริง ห้ามแต่งเพิ่ม\n\n---\n" + text)
     try:
-        resp, _who = agent.call_llm([{"role": "user", "content": [{"type": "text", "text": prompt}]}], [],
-                                    system=agent.chat_prompt())
-        out = agent._collect_text(resp.get("content", [])).strip()
+        out, who = _summarize(prompt)
     except Exception as e:  # noqa: BLE001
         return f"อ่านฟีด {app} ได้แล้ว แต่ AI สรุปไม่ได้ ({str(e)[:100]})\n\n" + text[:800]
+    print(time.strftime("[%H:%M:%S]"), f"📰 ฟีด {app}: อ่าน {t_read:.1f}s · สรุป {who} "
+          f"{time.time() - t0 - t_read:.1f}s · รวม {time.time() - t0:.1f}s", flush=True)
     return f"📰 โพสต์น่าสนใจใน {app} ตอนนี้:\n" + out
 
 
