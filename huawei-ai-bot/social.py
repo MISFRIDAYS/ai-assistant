@@ -154,7 +154,7 @@ def feed_summary(app, what="", ctx=None, pages=3):
         return f"อ่านฟีด {app} ได้แล้ว แต่ AI สรุปไม่ได้ ({str(e)[:100]})\n\n" + text[:800]
     print(time.strftime("[%H:%M:%S]"), f"📰 ฟีด {app}: อ่าน {t_read:.1f}s · สรุป {who} "
           f"{time.time() - t0 - t_read:.1f}s · รวม {time.time() - t0:.1f}s", flush=True)
-    return f"📰 โพสต์น่าสนใจใน {app} ตอนนี้:\n" + out
+    return f"📰 โพสต์น่าสนใจใน {chat_apps.LABEL.get(app, app.capitalize())} ตอนนี้:\n" + out
 
 
 # ================================================================ โทรผ่านแอปแชท

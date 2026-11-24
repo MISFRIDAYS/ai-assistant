@@ -593,8 +593,8 @@ def conversation(ctx, first_text=None, follow_timeout=None):
                     perf.record("quick", text, stt=stt, total=time.time() - tq + stt, ok=perf.looks_ok(quick))
                 except Exception:  # noqa: BLE001
                     pass
-                ui.done(quick)
-                voice.say(quick)
+                ui.done(quick)                # ข้อความเต็มแสดงบนจอ
+                voice.say(voice.speakable(quick))   # พูดแค่ช่วงแรก (ไม่อ่านรายการยาวทั้งหมด)
                 if config.WAKE_EACH_TIME and not always_listen():
                     return                    # ต้องเรียก "เฮ้ยผู้ช่วย" ใหม่ทุกคำสั่ง (ไม่ฟังต่อเอง)
                 text = None

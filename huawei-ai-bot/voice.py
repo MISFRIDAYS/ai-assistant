@@ -501,6 +501,38 @@ def clean_for_speech(text, limit=600):
     return t[:limit]
 
 
+def more_note():
+    """ประโยคบอกว่าคำตอบเต็มอยู่ที่ไหน (แอป → บนจอ · Termux/Telegram → ในแชท Telegram)"""
+    try:
+        import voice_profile
+        p = voice_profile.pol()
+    except Exception:  # noqa: BLE001
+        p = "ครับ"
+    if config.ANDROID_APP:
+        return f"ที่เหลือดูบนจอได้เลย{p}"
+    return f"รายละเอียดเพิ่มเติมส่งเข้า Telegram แล้ว{p}"
+
+
+def speakable(text, limit=None):
+    """คำตอบยาว (สรุปฟีด/เช็คเครื่อง/รายการ) → พูดแค่ช่วงแรกจนจบประโยค แล้วบอกว่าที่เหลืออยู่ไหน
+    (เดิมคำสั่งด่วนพูดยาวได้ถึง 600 ตัวอักษร ~40 วิ ขณะที่คำตอบ AI ตัดที่ VOICE_MAX_SPEAK)"""
+    limit = config.VOICE_MAX_SPEAK if limit is None else limit
+    t = clean_for_speech(text or "", limit=2000)
+    if not limit or len(t) <= limit:
+        return t
+    lines = [ln.strip() for ln in re.split(r"\n+", text or "") if clean_for_speech(ln)]
+    out = ""
+    for ln in lines:                                   # ตัดตามบรรทัด/ข้อ ไม่ตัดกลางประโยค
+        c = clean_for_speech(ln)
+        if out and len(out) + len(c) + 1 > limit:
+            break
+        out = f"{out} {c}".strip()
+    if not out or len(out) > limit + 60:              # บรรทัดเดียวยาวมาก → ตัดที่ช่องว่างใกล้ limit
+        cut = t.rfind(" ", 0, limit)
+        out = t[:cut if cut > limit // 2 else limit]
+    return f"{out.rstrip(' ,')} {more_note()}"
+
+
 _clean = {"t": 0.0, "lock": threading.Lock()}
 
 
@@ -926,7 +958,7 @@ class Speaker:
             return
         if self.max_chars and self.chars >= self.max_chars:
             self.truncated = True
-            text = "รายละเอียดเพิ่มเติมส่งเข้า Telegram แล้วครับ"
+            text = more_note()
         self.chars += len(text)
         self.count += 1
         self.spoken.append(text)
